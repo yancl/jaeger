@@ -4,10 +4,11 @@ title: {{ site.name }}
 ---
 
 <div id="home">
-  <h1>Blog Posts</h1>
+  Jaeger is Uber's distributed tracing system, currently handling over 500 production microservices.
   <ul class="posts">
-    {% for post in site.posts %}
-      <li><span>{{ post.date | date_to_string }}</span> &raquo; <a href="{{ site.baseurl }}{{ post.url }}">{{ post.title }}</a></li>
-    {% endfor %}
+    <li>Built in the style of Google's Dapper</li>
+    <li>Fully <a href="http://opentracing.io">OpenTracing</a> compatible instrumentation libraries (open source)
+    <li>Backend components are implemented in Go (will be open sourced soon)</li>
+    <li>Using Cassandra as the storage layer</li>
   </ul>
 </div>
