@@ -22,38 +22,74 @@ package tracing
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/opentracing/opentracing-go"
-	"github.com/uber/jaeger-client-go/config"
+	"github.com/opentracing/opentracing-go/ext"
 	"github.com/uber/jaeger-client-go/rpcmetrics"
 	"github.com/uber/jaeger-lib/metrics"
 	"go.uber.org/zap"
 
+	"github.com/uber/jaeger-client-go"
+	"github.com/uber/jaeger-client-go/transport/zipkin"
 	"github.com/uber/jaeger/examples/hotrod/pkg/log"
 )
 
 // Init creates a new instance of Jaeger tracer.
 func Init(serviceName string, metricsFactory metrics.Factory, logger log.Factory) opentracing.Tracer {
-	cfg := config.Configuration{
-		Sampler: &config.SamplerConfig{
-			Type:  "const",
-			Param: 1,
-		},
-		Reporter: &config.ReporterConfig{
-			LogSpans:            false,
-			BufferFlushInterval: 1 * time.Second,
-		},
-	}
-	tracer, _, err := cfg.New(
-		serviceName,
-		config.Logger(jaegerLoggerAdapter{logger.Bg()}),
-		config.Observer(rpcmetrics.NewObserver(metricsFactory, rpcmetrics.DefaultNameNormalizer)),
-	)
+	jaegerLogger := jaegerLoggerAdapter{logger.Bg()}
+	metricsObserver := rpcmetrics.NewObserver(metricsFactory, rpcmetrics.DefaultNameNormalizer)
+
+	sampler := jaeger.NewConstSampler(true)
+
+	username := ""
+	password := ""
+	cannotInit := "Cannot initialize Jaeger Tracer"
+
+	dcaReporter, err := newReporter("dca1", username, password, jaegerLogger)
 	if err != nil {
-		logger.Bg().Fatal("cannot initialize Jaeger Tracer", zap.Error(err))
+		logger.Bg().Fatal(cannotInit, zap.Error(err))
+	}
+
+	sjcReporter, err := newReporter("sjc1", username, password, jaegerLogger)
+	if err != nil {
+		logger.Bg().Fatal(cannotInit, zap.Error(err))
+	}
+
+	loggingReporter := jaeger.NewLoggingReporter(jaegerLogger) //optional, for debugging
+
+	compositeReporter := jaeger.NewCompositeReporter(dcaReporter, sjcReporter, loggingReporter)
+
+	tracer, _ := jaeger.NewTracer("http-reporter-test-"+serviceName, sampler, compositeReporter, jaeger.TracerOptions.Observer(metricsObserver))
+
+	if err != nil {
+		logger.Bg().Fatal(cannotInit, zap.Error(err))
 	}
 	return tracer
+}
+
+func newReporter(dc, username, password string, logger jaeger.Logger) (jaeger.Reporter, error) {
+	url := fmt.Sprintf("https://jaeger-%s.uber.com/api/traces?format=zipkin.thrift", dc)
+	t, err := zipkin.NewHTTPTransport(url, zipkin.HTTPBasicAuth(username, password))
+	if err != nil {
+		return nil, err
+	}
+	r := jaeger.NewRemoteReporter(t, jaeger.ReporterOptions.Logger(logger))
+	return debugReporter{reporter: r}, nil
+}
+
+// debugReporter sets the sampling.priority of every span to 1, this ensures that these spans aren't discarded by
+// jaeger collectors during downsampling
+type debugReporter struct {
+	reporter jaeger.Reporter
+}
+
+func (d debugReporter) Report(span *jaeger.Span) {
+	ext.SamplingPriority.Set(span, 1)
+	d.reporter.Report(span)
+}
+
+func (d debugReporter) Close() {
+	d.reporter.Close()
 }
 
 type jaegerLoggerAdapter struct {
