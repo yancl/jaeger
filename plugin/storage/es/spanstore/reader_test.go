@@ -21,18 +21,17 @@
 package spanstore
 
 import (
-	"encoding/json"
-	"errors"
 	"testing"
 	"time"
+	"encoding/json"
+	"errors"
 
 	"github.com/olivere/elastic"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 
-	"github.com/uber/jaeger/model"
 	"github.com/uber/jaeger/pkg/es/mocks"
 	"github.com/uber/jaeger/pkg/testutils"
 	"github.com/uber/jaeger/storage/spanstore"
@@ -65,12 +64,80 @@ func TestNewSpanReader(t *testing.T) {
 }
 
 func TestSpanReader_GetTrace(t *testing.T) {
-	// TODO: write test once done with function
-	// currently not doing anything, only for code coverage, ignore for code review
+	withSpanReader(func (r *spanReaderTest) {
+
+	})
+}
+
+func TestSpanReader_executeQuery(t *testing.T) {
 	withSpanReader(func(r *spanReaderTest) {
-		s, e := r.reader.GetTrace(model.TraceID{})
-		assert.Nil(t, s)
-		assert.Nil(t, e)
+		searchService := &mocks.SearchService{}
+		searchService.On("Type", stringMatcher(spanType)).Return(searchService)
+		searchService.On("Query", mock.Anything).Return(searchService)
+		r.client.On("Search", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(searchService)
+
+		hits := make([]*elastic.SearchHit, 7)
+		searchHits := &elastic.SearchHits{Hits: hits}
+
+		searchService.On("Do", mock.AnythingOfType("*context.emptyCtx")).
+			Return(&elastic.SearchResult{
+			Hits: searchHits,
+		}, nil)
+
+		query := elastic.NewTermQuery("traceID", "helloo")
+		hits, err := r.reader.executeQuery(query, "hello", "world", "index")
+
+		require.NoError(t, err)
+		assert.Len(t, hits, 7)
+	})
+}
+
+func TestSpanReader_executeQueryError(t *testing.T) {
+	withSpanReader(func(r *spanReaderTest) {
+		searchService := &mocks.SearchService{}
+		searchService.On("Type", stringMatcher(spanType)).Return(searchService)
+		searchService.On("Query", mock.Anything).Return(searchService)
+		r.client.On("Search", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(searchService)
+
+		searchService.On("Do", mock.AnythingOfType("*context.emptyCtx")).
+			Return(nil, errors.New("query error"))
+
+		query := elastic.NewTermQuery("traceID", "helloo")
+		hits, err := r.reader.executeQuery(query, "hello", "world", "index")
+
+		require.Error(t, err, "query error")
+		assert.Nil(t, hits)
+	})
+}
+
+func TestSpanReader_esJSONtoJSONSpanModel(t *testing.T) {
+	withSpanReader(func(r *spanReaderTest) {
+		data := []byte(`{"TraceID": "123"}`)
+		jsonPayload := (*json.RawMessage)(&data)
+
+		esSpanRaw := &elastic.SearchHit{
+			Source: jsonPayload,
+		}
+
+		span, err := r.reader.esJSONtoJSONSpanModel(esSpanRaw)
+		require.NoError(t, err)
+
+		assert.Equal(t, "123", string(span.TraceID))
+	})
+}
+
+func TestSpanReader_esJSONtoJSONSpanModelError(t *testing.T) {
+	withSpanReader(func(r *spanReaderTest) {
+		data := []byte(`{"TraceID": "123"asdf fadsg}`)
+		jsonPayload := (*json.RawMessage)(&data)
+
+		esSpanRaw := &elastic.SearchHit{
+			Source: jsonPayload,
+		}
+
+		span, err := r.reader.esJSONtoJSONSpanModel(esSpanRaw)
+		require.Error(t, err)
+		assert.Nil(t, span)
 	})
 }
 
@@ -239,9 +306,8 @@ func returnSearchFunc(typ string, r *spanReaderTest) ([]string, error) {
 		return nil, errors.New("Specify services or operations only")
 	}
 }
-
 func TestSpanReader_bucketToStringArray(t *testing.T) {
-	withSpanReader(func(r *spanReaderTest) {
+	withSpanReader(func (r *spanReaderTest) {
 		buckets := make([]*elastic.AggregationBucketKeyItem, 3)
 		buckets[0] = &elastic.AggregationBucketKeyItem{Key: "hello"}
 		buckets[1] = &elastic.AggregationBucketKeyItem{Key: "world"}
@@ -255,7 +321,7 @@ func TestSpanReader_bucketToStringArray(t *testing.T) {
 }
 
 func TestSpanReader_bucketToStringArrayError(t *testing.T) {
-	withSpanReader(func(r *spanReaderTest) {
+	withSpanReader(func (r *spanReaderTest) {
 		buckets := make([]*elastic.AggregationBucketKeyItem, 3)
 		buckets[0] = &elastic.AggregationBucketKeyItem{Key: "hello"}
 		buckets[1] = &elastic.AggregationBucketKeyItem{Key: "world"}
@@ -269,7 +335,7 @@ func TestSpanReader_bucketToStringArrayError(t *testing.T) {
 func TestSpanReader_FindTraces(t *testing.T) {
 	// TODO: write test once done with function
 	// currently not doing anything, only for code coverage, ignore for code review
-	withSpanReader(func(r *spanReaderTest) {
+	withSpanReader(func (r *spanReaderTest) {
 		s, e := r.reader.FindTraces(nil)
 		assert.Nil(t, s)
 		assert.Nil(t, e)

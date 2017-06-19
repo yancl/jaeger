@@ -1,35 +1,18 @@
-// Copyright (c) 2017 Uber Technologies, Inc.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-
 package spanstore
 
 import (
 	"context"
 	"time"
+	"encoding/json"
 
 	"github.com/olivere/elastic"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/uber/jaeger/model"
+	jConverter "github.com/uber/jaeger/model/converter/json"
+	jModel "github.com/uber/jaeger/model/json"
 	"github.com/uber/jaeger/pkg/es"
+	"github.com/uber/jaeger/model"
 	"github.com/uber/jaeger/storage/spanstore"
 )
 
@@ -60,9 +43,59 @@ func NewSpanReader(client es.Client, logger *zap.Logger) *SpanReader {
 
 // GetTrace takes a traceID and returns a Trace associated with that traceID
 func (s *SpanReader) GetTrace(traceID model.TraceID) (*model.Trace, error) {
-	// TODO
-	return nil, nil
+	return s.readTrace(traceID.String(), spanstore.TraceQueryParameters{})
 }
+
+func (s *SpanReader) readTrace(traceID string, traceQuery spanstore.TraceQueryParameters) (*model.Trace, error) {
+	query := elastic.NewTermQuery("traceID", traceID)
+
+	indices := s.findIndices(traceQuery)
+	esSpansRaw, err := s.executeQuery(query, indices...)
+	if err != nil {
+		return nil, err
+	}
+	if len(esSpansRaw) == 0 {
+		return nil, spanstore.ErrTraceNotFound
+	}
+
+	spans := make([]*model.Span, len(esSpansRaw))
+
+	for i, esSpanRaw := range esSpansRaw {
+		jsonSpan, err := s.esJSONtoJSONSpanModel(esSpanRaw)
+		span, err := jConverter.SpanToDomain(jsonSpan)
+		if err != nil {
+			return nil, err
+		}
+		spans[i] = span
+	}
+
+	trace := &model.Trace{}
+	trace.Spans = spans
+	return trace, nil
+}
+
+func (s *SpanReader) executeQuery(query elastic.Query, indices ...string) ([]*elastic.SearchHit, error) {
+	searchService, err := s.client.Search(indices...).
+		Type(spanType).
+		Query(query).
+		Do(s.ctx)
+	if err != nil {
+		return nil, err
+	}
+	return searchService.Hits.Hits, nil
+}
+
+func (s *SpanReader) esJSONtoJSONSpanModel(esSpanRaw *elastic.SearchHit) (*jModel.Span, error) {
+	esSpanInByteArray:= esSpanRaw.Source
+
+	var jsonSpan jModel.Span
+	err := json.Unmarshal(*esSpanInByteArray, &jsonSpan)
+	if err != nil {
+		return nil, err
+	}
+	return &jsonSpan, nil
+}
+
 
 // Returns the array of indices that we need to query, based on query params
 func (s *SpanReader) findIndices(traceQuery spanstore.TraceQueryParameters) []string {
