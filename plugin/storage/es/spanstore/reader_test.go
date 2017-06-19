@@ -21,21 +21,21 @@
 package spanstore
 
 import (
-	"encoding/json"
-	"errors"
 	"testing"
 	"time"
+	"encoding/json"
+	"errors"
 
 	"github.com/olivere/elastic"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 
-	"github.com/uber/jaeger/model"
 	"github.com/uber/jaeger/pkg/es/mocks"
 	"github.com/uber/jaeger/pkg/testutils"
 	"github.com/uber/jaeger/storage/spanstore"
+	"github.com/uber/jaeger/model"
 )
 
 var exampleESSpan = []byte(`{      "traceID": "1",
@@ -456,7 +456,7 @@ func returnSearchFunc(typ string, r *spanReaderTest) ([]string, error) {
 	}
 }
 func TestSpanReader_bucketToStringArray(t *testing.T) {
-	withSpanReader(func(r *spanReaderTest) {
+	withSpanReader(func (r *spanReaderTest) {
 		buckets := make([]*elastic.AggregationBucketKeyItem, 3)
 		buckets[0] = &elastic.AggregationBucketKeyItem{Key: "hello"}
 		buckets[1] = &elastic.AggregationBucketKeyItem{Key: "world"}
@@ -470,7 +470,7 @@ func TestSpanReader_bucketToStringArray(t *testing.T) {
 }
 
 func TestSpanReader_bucketToStringArrayError(t *testing.T) {
-	withSpanReader(func(r *spanReaderTest) {
+	withSpanReader(func (r *spanReaderTest) {
 		buckets := make([]*elastic.AggregationBucketKeyItem, 3)
 		buckets[0] = &elastic.AggregationBucketKeyItem{Key: "hello"}
 		buckets[1] = &elastic.AggregationBucketKeyItem{Key: "world"}
@@ -484,7 +484,7 @@ func TestSpanReader_bucketToStringArrayError(t *testing.T) {
 func TestSpanReader_FindTraces(t *testing.T) {
 	// TODO: write test once done with function
 	// currently not doing anything, only for code coverage, ignore for code review
-	withSpanReader(func(r *spanReaderTest) {
+	withSpanReader(func (r *spanReaderTest) {
 		s, e := r.reader.FindTraces(nil)
 		assert.Nil(t, s)
 		assert.Nil(t, e)
