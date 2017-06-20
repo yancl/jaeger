@@ -21,20 +21,21 @@
 package spanstore
 
 import (
-	"testing"
-	"time"
 	"encoding/json"
 	"errors"
+	"testing"
+	"time"
 
 	"github.com/olivere/elastic"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	"github.com/uber/jaeger/pkg/es/mocks"
 	"github.com/uber/jaeger/pkg/testutils"
 	"github.com/uber/jaeger/storage/spanstore"
+	//"github.com/uber/jaeger/model"
 )
 
 type spanReaderTest struct {
@@ -64,8 +65,80 @@ func TestNewSpanReader(t *testing.T) {
 }
 
 func TestSpanReader_GetTrace(t *testing.T) {
-	withSpanReader(func (r *spanReaderTest) {
+	withSpanReader(func(r *spanReaderTest) {
+		existsService := &mocks.IndicesExistsService{}
+		existsService.On("Do", mock.AnythingOfType("*context.emptyCtx")).Return(true, nil)
+		r.client.On("IndexExists", mock.AnythingOfType("string")).Return(existsService)
 
+		searchService := &mocks.SearchService{}
+		searchService.On("Type", stringMatcher(spanType)).Return(searchService)
+		searchService.On("Query", mock.Anything).Return(searchService)
+		r.client.On("Search", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(searchService)
+
+		hits := make([]*elastic.SearchHit, 1)
+		jsonPayload := []byte(`{
+					   "traceID": "1",
+					   "parentSpanID": "2",
+					   "spanID": "3",
+					   "flags": 0,
+					   "operationName": "op",
+					   "references": [],
+					   "startTime": 812965625,
+					   "duration": 3290114992,
+					   "tags": [
+					      {
+						 "key": "tag",
+						 "value": "1965806585",
+						 "tagType": "int64"
+					      }
+					   ],
+					   "logs": [
+					      {
+						 "timestamp": 812966073,
+						 "tags": [
+						    {
+						       "key": "logtag",
+						       "value": "helloworld",
+						       "tagType": "string"
+						    }
+						 ]
+					      }
+					   ],
+					   "process": {
+					      "serviceName": "serv",
+					      "tags": [
+						 {
+						    "key": "processtag",
+						    "value": "false",
+						    "tagType": "bool"
+						 }
+					      ]
+					   }
+					}`)
+		hits[0] = &elastic.SearchHit{
+			Source: (*json.RawMessage)(&jsonPayload),
+		}
+		searchHits := &elastic.SearchHits{Hits: hits}
+
+		searchService.On("Do", mock.AnythingOfType("*context.emptyCtx")).
+			Return(&elastic.SearchResult{
+				Hits: searchHits,
+			}, nil)
+
+		//trace, err := r.reader.GetTrace(model.TraceID{Low:1})
+		//require.NoError(t, err)
+		//require.NotNil(t, trace)
+		//require.Len(t, trace.Spans, 1)
+		//testSpan := trace.Spans[0]
+		//assert.Equal(t, uint64(1), testSpan.TraceID.Low)
+		//assert.Equal(t, model.SpanID(2), testSpan.ParentSpanID)
+		//assert.Equal(t, model.SpanID(3), testSpan.SpanID)
+		//assert.Equal(t, model.Flags(0), testSpan.Flags)
+		//assert.Equal(t, "op", testSpan.OperationName)
+		//assert.Equal(t, "serv", testSpan.Process.ServiceName)
+		//require.Len(t, testSpan.Tags, 1)
+		//assert.Equal(t, "tag", testSpan.Tags[0].Key)
+		//assert.Equal(t, 1965806585, testSpan.Tags[0].Value())
 	})
 }
 
@@ -81,8 +154,8 @@ func TestSpanReader_executeQuery(t *testing.T) {
 
 		searchService.On("Do", mock.AnythingOfType("*context.emptyCtx")).
 			Return(&elastic.SearchResult{
-			Hits: searchHits,
-		}, nil)
+				Hits: searchHits,
+			}, nil)
 
 		query := elastic.NewTermQuery("traceID", "helloo")
 		hits, err := r.reader.executeQuery(query, "hello", "world", "index")
@@ -112,7 +185,45 @@ func TestSpanReader_executeQueryError(t *testing.T) {
 
 func TestSpanReader_esJSONtoJSONSpanModel(t *testing.T) {
 	withSpanReader(func(r *spanReaderTest) {
-		data := []byte(`{"TraceID": "123"}`)
+		data := []byte(`{
+				   "traceID": "1",
+				   "parentSpanID": "2",
+				   "spanID": "3",
+				   "flags": 0,
+				   "operationName": "op",
+				   "references": [],
+				   "startTime": 812965625,
+				   "duration": 3290114992,
+				   "tags": [
+				      {
+					 "key": "tag",
+					 "value": "1965806585",
+					 "tagType": "int64"
+				      }
+				   ],
+				   "logs": [
+				      {
+					 "timestamp": 812966073,
+					 "tags": [
+					    {
+					       "key": "logtag",
+					       "value": "helloworld",
+					       "tagType": "string"
+					    }
+					 ]
+				      }
+				   ],
+				   "process": {
+				      "serviceName": "serv",
+				      "tags": [
+					 {
+					    "key": "processtag",
+					    "value": "false",
+					    "tagType": "bool"
+					 }
+				      ]
+				   }
+				}`)
 		jsonPayload := (*json.RawMessage)(&data)
 
 		esSpanRaw := &elastic.SearchHit{
@@ -122,7 +233,8 @@ func TestSpanReader_esJSONtoJSONSpanModel(t *testing.T) {
 		span, err := r.reader.esJSONtoJSONSpanModel(esSpanRaw)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", string(span.TraceID))
+		assert.Equal(t, "1", string(span.TraceID))
+		t.Log(span.Logs)
 	})
 }
 
@@ -307,7 +419,7 @@ func returnSearchFunc(typ string, r *spanReaderTest) ([]string, error) {
 	}
 }
 func TestSpanReader_bucketToStringArray(t *testing.T) {
-	withSpanReader(func (r *spanReaderTest) {
+	withSpanReader(func(r *spanReaderTest) {
 		buckets := make([]*elastic.AggregationBucketKeyItem, 3)
 		buckets[0] = &elastic.AggregationBucketKeyItem{Key: "hello"}
 		buckets[1] = &elastic.AggregationBucketKeyItem{Key: "world"}
@@ -321,7 +433,7 @@ func TestSpanReader_bucketToStringArray(t *testing.T) {
 }
 
 func TestSpanReader_bucketToStringArrayError(t *testing.T) {
-	withSpanReader(func (r *spanReaderTest) {
+	withSpanReader(func(r *spanReaderTest) {
 		buckets := make([]*elastic.AggregationBucketKeyItem, 3)
 		buckets[0] = &elastic.AggregationBucketKeyItem{Key: "hello"}
 		buckets[1] = &elastic.AggregationBucketKeyItem{Key: "world"}
@@ -335,7 +447,7 @@ func TestSpanReader_bucketToStringArrayError(t *testing.T) {
 func TestSpanReader_FindTraces(t *testing.T) {
 	// TODO: write test once done with function
 	// currently not doing anything, only for code coverage, ignore for code review
-	withSpanReader(func (r *spanReaderTest) {
+	withSpanReader(func(r *spanReaderTest) {
 		s, e := r.reader.FindTraces(nil)
 		assert.Nil(t, s)
 		assert.Nil(t, e)
