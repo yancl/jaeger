@@ -35,7 +35,7 @@ import (
 	"github.com/uber/jaeger/pkg/es/mocks"
 	"github.com/uber/jaeger/pkg/testutils"
 	"github.com/uber/jaeger/storage/spanstore"
-	//"github.com/uber/jaeger/model"
+	"github.com/uber/jaeger/model"
 )
 
 type spanReaderTest struct {
@@ -76,8 +76,7 @@ func TestSpanReader_GetTrace(t *testing.T) {
 		r.client.On("Search", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(searchService)
 
 		hits := make([]*elastic.SearchHit, 1)
-		jsonPayload := []byte(`{
-					   "traceID": "1",
+		jsonPayload := []byte(`{   "traceID": "1",
 					   "parentSpanID": "2",
 					   "spanID": "3",
 					   "flags": 0,
@@ -89,17 +88,17 @@ func TestSpanReader_GetTrace(t *testing.T) {
 					      {
 						 "key": "tag",
 						 "value": "1965806585",
-						 "tagType": "int64"
+						 "type": "int64"
 					      }
 					   ],
 					   "logs": [
 					      {
 						 "timestamp": 812966073,
-						 "tags": [
+						 "fields": [
 						    {
 						       "key": "logtag",
 						       "value": "helloworld",
-						       "tagType": "string"
+						       "type": "string"
 						    }
 						 ]
 					      }
@@ -110,7 +109,7 @@ func TestSpanReader_GetTrace(t *testing.T) {
 						 {
 						    "key": "processtag",
 						    "value": "false",
-						    "tagType": "bool"
+						    "type": "bool"
 						 }
 					      ]
 					   }
@@ -125,20 +124,28 @@ func TestSpanReader_GetTrace(t *testing.T) {
 				Hits: searchHits,
 			}, nil)
 
-		//trace, err := r.reader.GetTrace(model.TraceID{Low:1})
-		//require.NoError(t, err)
-		//require.NotNil(t, trace)
-		//require.Len(t, trace.Spans, 1)
-		//testSpan := trace.Spans[0]
-		//assert.Equal(t, uint64(1), testSpan.TraceID.Low)
-		//assert.Equal(t, model.SpanID(2), testSpan.ParentSpanID)
-		//assert.Equal(t, model.SpanID(3), testSpan.SpanID)
-		//assert.Equal(t, model.Flags(0), testSpan.Flags)
-		//assert.Equal(t, "op", testSpan.OperationName)
-		//assert.Equal(t, "serv", testSpan.Process.ServiceName)
-		//require.Len(t, testSpan.Tags, 1)
-		//assert.Equal(t, "tag", testSpan.Tags[0].Key)
-		//assert.Equal(t, 1965806585, testSpan.Tags[0].Value())
+		trace, err := r.reader.GetTrace(model.TraceID{Low:1})
+		require.NoError(t, err)
+		require.NotNil(t, trace)
+		require.Len(t, trace.Spans, 1)
+		testSpan := trace.Spans[0]
+		assert.Equal(t, uint64(1), testSpan.TraceID.Low)
+		assert.Equal(t, model.SpanID(2), testSpan.ParentSpanID)
+		assert.Equal(t, model.SpanID(3), testSpan.SpanID)
+		assert.Equal(t, model.Flags(0), testSpan.Flags)
+		assert.Equal(t, "op", testSpan.OperationName)
+		assert.Equal(t, "serv", testSpan.Process.ServiceName)
+		require.Len(t, testSpan.Process.Tags, 1)
+		assert.Equal(t, "processtag", testSpan.Process.Tags[0].Key)
+		assert.Equal(t, false, testSpan.Process.Tags[0].Value())
+		require.Len(t, testSpan.Tags, 1)
+		assert.Equal(t, "tag", testSpan.Tags[0].Key)
+		assert.Equal(t, int64(1965806585), testSpan.Tags[0].Value())
+		require.Len(t, testSpan.Logs, 1)
+		require.Len(t, testSpan.Logs[0].Fields, 1)
+		assert.Equal(t, "logtag", testSpan.Logs[0].Fields[0].Key)
+		assert.Equal(t, "helloworld", testSpan.Logs[0].Fields[0].Value())
+
 	})
 }
 
@@ -198,17 +205,17 @@ func TestSpanReader_esJSONtoJSONSpanModel(t *testing.T) {
 				      {
 					 "key": "tag",
 					 "value": "1965806585",
-					 "tagType": "int64"
+					 "type": "int64"
 				      }
 				   ],
 				   "logs": [
 				      {
 					 "timestamp": 812966073,
-					 "tags": [
+					 "fields": [
 					    {
 					       "key": "logtag",
 					       "value": "helloworld",
-					       "tagType": "string"
+					       "type": "string"
 					    }
 					 ]
 				      }
@@ -219,7 +226,7 @@ func TestSpanReader_esJSONtoJSONSpanModel(t *testing.T) {
 					 {
 					    "key": "processtag",
 					    "value": "false",
-					    "tagType": "bool"
+					    "type": "bool"
 					 }
 				      ]
 				   }
@@ -233,8 +240,18 @@ func TestSpanReader_esJSONtoJSONSpanModel(t *testing.T) {
 		span, err := r.reader.esJSONtoJSONSpanModel(esSpanRaw)
 		require.NoError(t, err)
 
+		// TODO: This is not a deep equal; does not check every element.
 		assert.Equal(t, "1", string(span.TraceID))
-		t.Log(span.Logs)
+		assert.Equal(t, "2", string(span.ParentSpanID))
+		assert.Equal(t, "3", string(span.SpanID))
+		assert.Equal(t, uint32(0), span.Flags)
+		assert.Equal(t, "op", span.OperationName)
+		assert.Equal(t, "serv", span.Process.ServiceName)
+		assert.Equal(t, uint64(812965625), span.StartTime)
+		assert.Equal(t, uint64(3290114992), span.Duration)
+		require.Len(t, span.Tags, 1)
+		assert.Equal(t, "tag", span.Tags[0].Key)
+		assert.Equal(t, "int64", string(span.Tags[0].Type))
 	})
 }
 
