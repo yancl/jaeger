@@ -32,10 +32,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/uber/jaeger/model"
 	"github.com/uber/jaeger/pkg/es/mocks"
 	"github.com/uber/jaeger/pkg/testutils"
 	"github.com/uber/jaeger/storage/spanstore"
-	"github.com/uber/jaeger/model"
 )
 
 var exampleESSpan = []byte(`{      "traceID": "1",
@@ -141,7 +141,6 @@ func TestSpanReader_GetTrace(t *testing.T) {
 		require.Len(t, testSpan.Logs[0].Fields, 1)
 		assert.Equal(t, "logtag", testSpan.Logs[0].Fields[0].Key)
 		assert.Equal(t, "helloworld", testSpan.Logs[0].Fields[0].Value())
-
 	})
 }
 
