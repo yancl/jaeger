@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/pkg/errors"
 	"github.com/uber/jaeger/model"
 	jConverter "github.com/uber/jaeger/model/converter/json"
 	jModel "github.com/uber/jaeger/model/json"
@@ -82,6 +83,9 @@ func (s *SpanReader) readTrace(traceID string, traceQuery spanstore.TraceQueryPa
 
 	for i, esSpanRaw := range esSpansRaw {
 		jsonSpan, err := s.esJSONtoJSONSpanModel(esSpanRaw)
+		if err != nil {
+			return nil, err
+		}
 		span, err := jConverter.SpanToDomain(jsonSpan)
 		if err != nil {
 			return nil, err

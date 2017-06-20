@@ -32,168 +32,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/uber/jaeger/model"
 	"github.com/uber/jaeger/pkg/es/mocks"
 	"github.com/uber/jaeger/pkg/testutils"
 	"github.com/uber/jaeger/storage/spanstore"
-	"github.com/uber/jaeger/model"
 )
 
-type spanReaderTest struct {
-	client    *mocks.Client
-	logger    *zap.Logger
-	logBuffer *testutils.Buffer
-	reader    *SpanReader
-}
-
-func withSpanReader(fn func(r *spanReaderTest)) {
-	client := &mocks.Client{}
-	logger, logBuffer := testutils.NewLogger()
-	r := &spanReaderTest{
-		client:    client,
-		logger:    logger,
-		logBuffer: logBuffer,
-		reader:    NewSpanReader(client, logger),
-	}
-	fn(r)
-}
-
-func TestNewSpanReader(t *testing.T) {
-	withSpanReader(func(r *spanReaderTest) {
-		var reader spanstore.Reader = r.reader // check API conformance
-		assert.NotNil(t, reader)
-	})
-}
-
-func TestSpanReader_GetTrace(t *testing.T) {
-	withSpanReader(func(r *spanReaderTest) {
-		existsService := &mocks.IndicesExistsService{}
-		existsService.On("Do", mock.AnythingOfType("*context.emptyCtx")).Return(true, nil)
-		r.client.On("IndexExists", mock.AnythingOfType("string")).Return(existsService)
-
-		searchService := &mocks.SearchService{}
-		searchService.On("Type", stringMatcher(spanType)).Return(searchService)
-		searchService.On("Query", mock.Anything).Return(searchService)
-		r.client.On("Search", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(searchService)
-
-		hits := make([]*elastic.SearchHit, 1)
-		jsonPayload := []byte(`{   "traceID": "1",
-					   "parentSpanID": "2",
-					   "spanID": "3",
-					   "flags": 0,
-					   "operationName": "op",
-					   "references": [],
-					   "startTime": 812965625,
-					   "duration": 3290114992,
-					   "tags": [
-					      {
-						 "key": "tag",
-						 "value": "1965806585",
-						 "type": "int64"
-					      }
-					   ],
-					   "logs": [
-					      {
-						 "timestamp": 812966073,
-						 "fields": [
-						    {
-						       "key": "logtag",
-						       "value": "helloworld",
-						       "type": "string"
-						    }
-						 ]
-					      }
-					   ],
-					   "process": {
-					      "serviceName": "serv",
-					      "tags": [
-						 {
-						    "key": "processtag",
-						    "value": "false",
-						    "type": "bool"
-						 }
-					      ]
-					   }
-					}`)
-		hits[0] = &elastic.SearchHit{
-			Source: (*json.RawMessage)(&jsonPayload),
-		}
-		searchHits := &elastic.SearchHits{Hits: hits}
-
-		searchService.On("Do", mock.AnythingOfType("*context.emptyCtx")).
-			Return(&elastic.SearchResult{
-				Hits: searchHits,
-			}, nil)
-
-		trace, err := r.reader.GetTrace(model.TraceID{Low:1})
-		require.NoError(t, err)
-		require.NotNil(t, trace)
-		require.Len(t, trace.Spans, 1)
-		testSpan := trace.Spans[0]
-		assert.Equal(t, uint64(1), testSpan.TraceID.Low)
-		assert.Equal(t, model.SpanID(2), testSpan.ParentSpanID)
-		assert.Equal(t, model.SpanID(3), testSpan.SpanID)
-		assert.Equal(t, model.Flags(0), testSpan.Flags)
-		assert.Equal(t, "op", testSpan.OperationName)
-		assert.Equal(t, "serv", testSpan.Process.ServiceName)
-		require.Len(t, testSpan.Process.Tags, 1)
-		assert.Equal(t, "processtag", testSpan.Process.Tags[0].Key)
-		assert.Equal(t, false, testSpan.Process.Tags[0].Value())
-		require.Len(t, testSpan.Tags, 1)
-		assert.Equal(t, "tag", testSpan.Tags[0].Key)
-		assert.Equal(t, int64(1965806585), testSpan.Tags[0].Value())
-		require.Len(t, testSpan.Logs, 1)
-		require.Len(t, testSpan.Logs[0].Fields, 1)
-		assert.Equal(t, "logtag", testSpan.Logs[0].Fields[0].Key)
-		assert.Equal(t, "helloworld", testSpan.Logs[0].Fields[0].Value())
-
-	})
-}
-
-func TestSpanReader_executeQuery(t *testing.T) {
-	withSpanReader(func(r *spanReaderTest) {
-		searchService := &mocks.SearchService{}
-		searchService.On("Type", stringMatcher(spanType)).Return(searchService)
-		searchService.On("Query", mock.Anything).Return(searchService)
-		r.client.On("Search", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(searchService)
-
-		hits := make([]*elastic.SearchHit, 7)
-		searchHits := &elastic.SearchHits{Hits: hits}
-
-		searchService.On("Do", mock.AnythingOfType("*context.emptyCtx")).
-			Return(&elastic.SearchResult{
-				Hits: searchHits,
-			}, nil)
-
-		query := elastic.NewTermQuery("traceID", "helloo")
-		hits, err := r.reader.executeQuery(query, "hello", "world", "index")
-
-		require.NoError(t, err)
-		assert.Len(t, hits, 7)
-	})
-}
-
-func TestSpanReader_executeQueryError(t *testing.T) {
-	withSpanReader(func(r *spanReaderTest) {
-		searchService := &mocks.SearchService{}
-		searchService.On("Type", stringMatcher(spanType)).Return(searchService)
-		searchService.On("Query", mock.Anything).Return(searchService)
-		r.client.On("Search", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(searchService)
-
-		searchService.On("Do", mock.AnythingOfType("*context.emptyCtx")).
-			Return(nil, errors.New("query error"))
-
-		query := elastic.NewTermQuery("traceID", "helloo")
-		hits, err := r.reader.executeQuery(query, "hello", "world", "index")
-
-		require.Error(t, err, "query error")
-		assert.Nil(t, hits)
-	})
-}
-
-func TestSpanReader_esJSONtoJSONSpanModel(t *testing.T) {
-	withSpanReader(func(r *spanReaderTest) {
-		data := []byte(`{
-				   "traceID": "1",
+var exampleESSpan = []byte(`{      "traceID": "1",
 				   "parentSpanID": "2",
 				   "spanID": "3",
 				   "flags": 0,
@@ -231,7 +76,182 @@ func TestSpanReader_esJSONtoJSONSpanModel(t *testing.T) {
 				      ]
 				   }
 				}`)
-		jsonPayload := (*json.RawMessage)(&data)
+
+type spanReaderTest struct {
+	client    *mocks.Client
+	logger    *zap.Logger
+	logBuffer *testutils.Buffer
+	reader    *SpanReader
+}
+
+func withSpanReader(fn func(r *spanReaderTest)) {
+	client := &mocks.Client{}
+	logger, logBuffer := testutils.NewLogger()
+	r := &spanReaderTest{
+		client:    client,
+		logger:    logger,
+		logBuffer: logBuffer,
+		reader:    NewSpanReader(client, logger),
+	}
+	fn(r)
+}
+
+func TestNewSpanReader(t *testing.T) {
+	withSpanReader(func(r *spanReaderTest) {
+		var reader spanstore.Reader = r.reader // check API conformance
+		assert.NotNil(t, reader)
+	})
+}
+
+func TestSpanReader_GetTrace(t *testing.T) {
+	withSpanReader(func(r *spanReaderTest) {
+		mockExistsService(r)
+
+		hits := make([]*elastic.SearchHit, 1)
+		hits[0] = &elastic.SearchHit{
+			Source: (*json.RawMessage)(&exampleESSpan),
+		}
+		searchHits := &elastic.SearchHits{Hits: hits}
+
+		mockSearchService("", r).On("Do", mock.AnythingOfType("*context.emptyCtx")).
+			Return(&elastic.SearchResult{
+				Hits: searchHits,
+			}, nil)
+
+		trace, err := r.reader.GetTrace(model.TraceID{Low: 1})
+		require.NoError(t, err)
+		require.NotNil(t, trace)
+
+		// TODO: This is not a deep equal; does not check every element.
+		require.Len(t, trace.Spans, 1)
+		testSpan := trace.Spans[0]
+		assert.Equal(t, uint64(1), testSpan.TraceID.Low)
+		assert.Equal(t, model.SpanID(2), testSpan.ParentSpanID)
+		assert.Equal(t, model.SpanID(3), testSpan.SpanID)
+		assert.Equal(t, model.Flags(0), testSpan.Flags)
+		assert.Equal(t, "op", testSpan.OperationName)
+		assert.Equal(t, "serv", testSpan.Process.ServiceName)
+		require.Len(t, testSpan.Process.Tags, 1)
+		assert.Equal(t, "processtag", testSpan.Process.Tags[0].Key)
+		assert.Equal(t, false, testSpan.Process.Tags[0].Value())
+		require.Len(t, testSpan.Tags, 1)
+		assert.Equal(t, "tag", testSpan.Tags[0].Key)
+		assert.Equal(t, int64(1965806585), testSpan.Tags[0].Value())
+		require.Len(t, testSpan.Logs, 1)
+		require.Len(t, testSpan.Logs[0].Fields, 1)
+		assert.Equal(t, "logtag", testSpan.Logs[0].Fields[0].Key)
+		assert.Equal(t, "helloworld", testSpan.Logs[0].Fields[0].Value())
+	})
+}
+
+func TestSpanReader_GetTraceQueryError(t *testing.T) {
+	withSpanReader(func(r *spanReaderTest) {
+		mockExistsService(r)
+		mockSearchService("", r).On("Do", mock.AnythingOfType("*context.emptyCtx")).
+			Return(nil, errors.New("query error occurred"))
+		trace, err := r.reader.GetTrace(model.TraceID{Low: 1})
+		require.EqualError(t, err, "query error occurred")
+		require.Nil(t, trace)
+	})
+}
+
+func TestSpanReader_GetTraceNoSpansError(t *testing.T) {
+	withSpanReader(func(r *spanReaderTest) {
+		mockExistsService(r)
+
+		hits := make([]*elastic.SearchHit, 0)
+		searchHits := &elastic.SearchHits{Hits: hits}
+
+		mockSearchService("", r).On("Do", mock.AnythingOfType("*context.emptyCtx")).
+			Return(&elastic.SearchResult{
+				Hits: searchHits,
+			}, nil)
+
+		trace, err := r.reader.GetTrace(model.TraceID{Low: 1})
+		require.EqualError(t, err, "trace not found")
+		require.Nil(t, trace)
+	})
+}
+
+func TestSpanReader_GetTraceInvalidSpanError(t *testing.T) {
+	withSpanReader(func(r *spanReaderTest) {
+		mockExistsService(r)
+
+		data := []byte(`{"TraceID": "123"asdf fadsg}`)
+		hits := make([]*elastic.SearchHit, 1)
+		hits[0] = &elastic.SearchHit{
+			Source: (*json.RawMessage)(&data),
+		}
+		searchHits := &elastic.SearchHits{Hits: hits}
+
+		mockSearchService("", r).On("Do", mock.AnythingOfType("*context.emptyCtx")).
+			Return(&elastic.SearchResult{
+				Hits: searchHits,
+			}, nil)
+
+		trace, err := r.reader.GetTrace(model.TraceID{Low: 1})
+		require.Error(t, err, "invalid span")
+		require.Nil(t, trace)
+	})
+}
+
+func TestSpanReader_GetTraceSpanConversionError(t *testing.T) {
+	withSpanReader(func(r *spanReaderTest) {
+		mockExistsService(r)
+
+		badSpan := []byte(`{"TraceID": "123"}`)
+
+		hits := make([]*elastic.SearchHit, 1)
+		hits[0] = &elastic.SearchHit{
+			Source: (*json.RawMessage)(&badSpan),
+		}
+		searchHits := &elastic.SearchHits{Hits: hits}
+
+		mockSearchService("", r).On("Do", mock.AnythingOfType("*context.emptyCtx")).
+			Return(&elastic.SearchResult{
+				Hits: searchHits,
+			}, nil)
+
+		trace, err := r.reader.GetTrace(model.TraceID{Low: 1})
+		require.Error(t, err, "span conversion error, because lacks elements")
+		require.Nil(t, trace)
+	})
+}
+
+func TestSpanReader_executeQuery(t *testing.T) {
+	withSpanReader(func(r *spanReaderTest) {
+		hits := make([]*elastic.SearchHit, 7)
+		searchHits := &elastic.SearchHits{Hits: hits}
+
+		mockSearchService("", r).On("Do", mock.AnythingOfType("*context.emptyCtx")).
+			Return(&elastic.SearchResult{
+				Hits: searchHits,
+			}, nil)
+
+		query := elastic.NewTermQuery("traceID", "helloo")
+		hits, err := r.reader.executeQuery(query, "hello", "world", "index")
+
+		require.NoError(t, err)
+		assert.Len(t, hits, 7)
+	})
+}
+
+func TestSpanReader_executeQueryError(t *testing.T) {
+	withSpanReader(func(r *spanReaderTest) {
+		mockSearchService("", r).On("Do", mock.AnythingOfType("*context.emptyCtx")).
+			Return(nil, errors.New("query error"))
+
+		query := elastic.NewTermQuery("traceID", "helloo")
+		hits, err := r.reader.executeQuery(query, "hello", "world", "index")
+
+		require.Error(t, err, "query error")
+		assert.Nil(t, hits)
+	})
+}
+
+func TestSpanReader_esJSONtoJSONSpanModel(t *testing.T) {
+	withSpanReader(func(r *spanReaderTest) {
+		jsonPayload := (*json.RawMessage)(&exampleESSpan)
 
 		esSpanRaw := &elastic.SearchHit{
 			Source: jsonPayload,
@@ -480,6 +500,8 @@ func mockExistsService(r *spanReaderTest) {
 func mockSearchService(servicesOrOperations string, r *spanReaderTest) *mocks.SearchService {
 	searchService := &mocks.SearchService{}
 	searchService.On("Type", stringMatcher(serviceType)).Return(searchService)
+	searchService.On("Type", stringMatcher(spanType)).Return(searchService)
+	searchService.On("Query", mock.Anything).Return(searchService)
 	searchService.On("Size", mock.MatchedBy(func(i int) bool {
 		return i == 0
 	})).Return(searchService)
