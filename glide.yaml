@@ -5,7 +5,7 @@ import:
   subpackages:
   - lib/go/thrift
 - package: github.com/gocql/gocql
-  version: 4d2d1ac71932f7c4a6c7feb0d654462e4116c58b
+  version: 9ce8b08dfa5559eb86592129986654503cf40cf7
 - package: github.com/opentracing/opentracing-go
   subpackages:
   - ext

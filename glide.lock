@@ -1,5 +1,5 @@
-hash: c152996d24dff5978cbfe5aa65739995f12f824e62510b5b66372c7d2e7e6f18
-updated: 2017-11-27T15:48:19.270604282-05:00
+hash: 96a83e37c5f0b8acf735c30080f536ad413a70e50db090bfe2abb837aeabcfb5
+updated: 2017-12-13T16:20:20.068365929-05:00
 imports:
 - name: github.com/apache/thrift
   version: 53dd39833a08ce33582e5ff31fa18bb4735d6731
@@ -19,7 +19,7 @@ imports:
   - assert
   - require
 - name: github.com/davecgh/go-spew
-  version: ecdeabc65495df2dec95d7c4a4c3e021903035e5
+  version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
   - spew
 - name: github.com/fsnotify/fsnotify
@@ -58,7 +58,7 @@ imports:
 - name: github.com/go-openapi/validate
   version: a762d5dd38f7c7e9e1a13c3e98344cfbe4aa15d9
 - name: github.com/gocql/gocql
-  version: 4d2d1ac71932f7c4a6c7feb0d654462e4116c58b
+  version: 9ce8b08dfa5559eb86592129986654503cf40cf7
   subpackages:
   - internal/lru
   - internal/murmur
@@ -167,7 +167,7 @@ imports:
 - name: github.com/stretchr/objx
   version: 1a9d0bb9f541897e62256577b352fdbc1fb4fd94
 - name: github.com/stretchr/testify
-  version: 2aa2c176b9dab406a6970f6a55f513e8a8c8b18f
+  version: f6abca593680b2315d2075e0f5e2a9751e3f431a
   subpackages:
   - assert
   - mock
@@ -228,7 +228,7 @@ imports:
   - zapcore
   - zaptest
 - name: golang.org/x/net
-  version: a337091b0525af65de94df2eb7e98bd9962dcbe2
+  version: 5f8847ae0d0e90b6a9dc8148e7ad616874625171
   subpackages:
   - context
   - context/ctxhttp
