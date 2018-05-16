@@ -53,9 +53,10 @@ type countsBySvc struct {
 }
 
 type metricsBySvc struct {
-	spans      countsBySvc // number of spans received per service
-	debugSpans countsBySvc // number of debug spans received per service
-	traces     countsBySvc // number of traces originated per service
+	spans       countsBySvc // number of spans received per service
+	debugSpans  countsBySvc // number of debug spans received per service
+	traces      countsBySvc // number of traces originated per service
+	debugTraces countsBySvc // number of debug traces originated per service
 }
 
 // CountsBySpanType measures received, rejected, and receivedByService metrics for a format type
@@ -110,6 +111,11 @@ func newMetricsBySvc(factory metrics.Factory, category string) metricsBySvc {
 			factory: factory.Namespace("traces."+category, nil),
 			lock:    &sync.Mutex{},
 		},
+		debugTraces: countsBySvc{
+			counts:  make(map[string]metrics.Counter),
+			factory: factory.Namespace("debug-traces."+category, nil),
+			lock:    &sync.Mutex{},
+		},
 	}
 }
 
@@ -143,6 +149,9 @@ func (m metricsBySvc) ReportServiceNameForSpan(span *model.Span) {
 	}
 	if span.ParentSpanID == 0 {
 		m.countTracesByServiceName(serviceName)
+		if span.Flags.IsDebug() {
+			m.countDebugTracesByServiceName(serviceName)
+		}
 	}
 }
 
@@ -160,6 +169,10 @@ func (m metricsBySvc) countDebugSpansByServiceName(serviceName string) {
 // i.e. the counter is only incremented for the root spans.
 func (m metricsBySvc) countTracesByServiceName(serviceName string) {
 	m.traces.countByServiceName(serviceName)
+}
+
+func (m metricsBySvc) countDebugTracesByServiceName(serviceName string) {
+	m.debugTraces.countByServiceName(serviceName)
 }
 
 // countByServiceName maintains a map of counters for each service name it's
