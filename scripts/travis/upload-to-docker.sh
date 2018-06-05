@@ -3,7 +3,7 @@
 set -e
 
 BRANCH=${BRANCH:?'missing BRANCH env var'}
-IMAGE="${REPO:?'missing REPO env var'}:latest"
+IMAGE="${REPO:?'missing REPO env var'}:$BRANCH"
 
 unset major minor patch
 if [[ "$BRANCH" == "master" ]]; then
