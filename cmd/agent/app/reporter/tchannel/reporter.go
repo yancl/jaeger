@@ -122,7 +122,7 @@ func (r *Reporter) EmitBatch(batch *jaeger.Batch) error {
 }
 
 func (r *Reporter) submitAndReport(submissionFunc func(ctx thrift.Context) error, errMsg string, size int64, batchMetrics batchMetrics) error {
-	ctx, cancel := tchannel.NewContextBuilder(time.Second).DisableTracing().Build()
+	ctx, cancel := tchannel.NewContextBuilder(10 * time.Second).DisableTracing().Build()
 	defer cancel()
 
 	if err := submissionFunc(ctx); err != nil {
