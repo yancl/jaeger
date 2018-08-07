@@ -30,6 +30,8 @@ const (
 	EncodingJSON = "json"
 	// EncodingProto indicates spans are encoded as a protobuf byte array
 	EncodingProto = "protobuf"
+	// EncodingOpenCensus indicates spans are encoded as a opencensus pb byte array
+	EncodingOpenCensus = "opencensus"
 
 	// ConfigPrefix is a prefix fro the ingester flags
 	ConfigPrefix = "ingester"

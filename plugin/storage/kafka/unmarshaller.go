@@ -25,7 +25,7 @@ import (
 
 // Unmarshaller decodes a byte array to a span
 type Unmarshaller interface {
-	Unmarshal([]byte) (*model.Span, error)
+	Unmarshal([]byte) ([]*model.Span, error)
 }
 
 // ProtobufUnmarshaller implements Unmarshaller
@@ -37,10 +37,10 @@ func NewProtobufUnmarshaller() *ProtobufUnmarshaller {
 }
 
 // Unmarshal decodes a protobuf byte array to a span
-func (h *ProtobufUnmarshaller) Unmarshal(msg []byte) (*model.Span, error) {
+func (h *ProtobufUnmarshaller) Unmarshal(msg []byte) ([]*model.Span, error) {
 	newSpan := &model.Span{}
 	err := proto.Unmarshal(msg, newSpan)
-	return newSpan, err
+	return []*model.Span{newSpan}, err
 }
 
 // JSONUnmarshaller implements Unmarshaller
@@ -52,8 +52,8 @@ func NewJSONUnmarshaller() *JSONUnmarshaller {
 }
 
 // Unmarshal decodes a json byte array to a span
-func (h *JSONUnmarshaller) Unmarshal(msg []byte) (*model.Span, error) {
+func (h *JSONUnmarshaller) Unmarshal(msg []byte) ([]*model.Span, error) {
 	newSpan := &model.Span{}
 	err := jsonpb.Unmarshal(bytes.NewReader(msg), newSpan)
-	return newSpan, err
+	return []*model.Span{newSpan}, err
 }

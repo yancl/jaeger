@@ -19,5 +19,6 @@ cmd/collector/collector
 cmd/collector/collector-linux
 cmd/query/query
 cmd/query/query-linux
+cmd/ingester/ingester-linux
 crossdock/crossdock-linux
 run-crossdock.log
