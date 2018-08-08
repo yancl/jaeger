@@ -25,6 +25,10 @@ import (
 	"github.com/yancl/hunter-proto/gen-go/dumpproto"
 )
 
+const (
+	SERVICE_NAME_KEY = "service_name"
+)
+
 // OpenCensusUnmarshaller implements Unmarshaller
 type OpenCensusUnmarshaller struct{}
 
@@ -65,7 +69,7 @@ func (h *OpenCensusUnmarshaller) Unmarshal(msg []byte) ([]*model.Span, error) {
 					Duration:      endTime.Sub(startTime),
 					Tags:          convertTags(span),
 					Logs:          convertLogs(span),
-					Process:       &model.Process{ServiceName: "unknown"},
+					Process:       &model.Process{ServiceName: extractServiceName(span)},
 				},
 			)
 		}
@@ -115,6 +119,19 @@ func convertReferenceType(t traceproto.Span_Link_Type) model.SpanRefType {
 		return model.SpanRefType_CHILD_OF
 	}
 	return model.SpanRefType_FOLLOWS_FROM
+}
+
+func extractServiceName(span *traceproto.Span) string {
+	serviceName := "unset"
+	if span.Attributes != nil {
+		if v, ok := span.Attributes.AttributeMap[SERVICE_NAME_KEY]; ok {
+			if v.GetStringValue() != nil {
+				serviceName = v.GetStringValue().Value
+			}
+			delete(span.Attributes.AttributeMap, SERVICE_NAME_KEY)
+		}
+	}
+	return serviceName
 }
 
 func convertTags(span *traceproto.Span) []model.KeyValue {
@@ -192,7 +209,9 @@ func attributeToTag(key string, attr *traceproto.AttributeValue) *model.KeyValue
 	if attr != nil {
 		switch attr.Value.(type) {
 		case *traceproto.AttributeValue_StringValue:
-			return &model.KeyValue{Key: key, VType: model.ValueType_STRING, VStr: attr.GetStringValue().Value}
+			if attr.GetStringValue() != nil {
+				return &model.KeyValue{Key: key, VType: model.ValueType_STRING, VStr: attr.GetStringValue().Value}
+			}
 		case *traceproto.AttributeValue_IntValue:
 			return &model.KeyValue{Key: key, VType: model.ValueType_INT64, VInt64: attr.GetIntValue()}
 		case *traceproto.AttributeValue_BoolValue:
