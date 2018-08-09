@@ -19,6 +19,7 @@ import (
 
 	"encoding/binary"
 	"github.com/gogo/protobuf/proto"
+	"strings"
 
 	"github.com/census-instrumentation/opencensus-proto/gen-go/traceproto"
 	"github.com/jaegertracing/jaeger/model"
@@ -27,6 +28,11 @@ import (
 
 const (
 	SERVICE_NAME_KEY = "service_name"
+	KIND_KEY         = "kind"
+	REMOTE_KIND_KEY  = "remote_kind"
+	REMOTE_ADDR_KEY  = "remote_addr"
+	//HOST_NAME_KEY    = "hostname"
+	//QUERY_KEY        = "query"
 )
 
 // OpenCensusUnmarshaller implements Unmarshaller
@@ -62,7 +68,7 @@ func (h *OpenCensusUnmarshaller) Unmarshal(msg []byte) ([]*model.Span, error) {
 				&model.Span{
 					TraceID:       model.NewTraceID(binary.BigEndian.Uint64(span.TraceId[0:8]), binary.BigEndian.Uint64(span.TraceId[8:16])),
 					SpanID:        model.NewSpanID(binary.BigEndian.Uint64(span.SpanId)),
-					OperationName: operationName(span),
+					OperationName: strings.ToUpper(extractRemoteKind(span)) + "::" + operationName(span),
 					References:    convertReferences(span),
 					Flags:         0,
 					StartTime:     startTime,
@@ -128,10 +134,21 @@ func extractServiceName(span *traceproto.Span) string {
 			if v.GetStringValue() != nil {
 				serviceName = v.GetStringValue().Value
 			}
-			delete(span.Attributes.AttributeMap, SERVICE_NAME_KEY)
 		}
 	}
 	return serviceName
+}
+
+func extractRemoteKind(span *traceproto.Span) string {
+	remoteKind := "unset"
+	if span.Attributes != nil {
+		if v, ok := span.Attributes.AttributeMap[REMOTE_KIND_KEY]; ok {
+			if v.GetStringValue() != nil {
+				remoteKind = v.GetStringValue().Value
+			}
+		}
+	}
+	return remoteKind
 }
 
 func convertTags(span *traceproto.Span) []model.KeyValue {
