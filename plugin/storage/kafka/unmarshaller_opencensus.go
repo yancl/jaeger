@@ -31,8 +31,8 @@ const (
 	KIND_KEY         = "kind"
 	REMOTE_KIND_KEY  = "remote_kind"
 	REMOTE_ADDR_KEY  = "remote_addr"
-	//HOST_NAME_KEY    = "hostname"
-	//QUERY_KEY        = "query"
+	HOST_NAME_KEY    = "hostname"
+	QUERY_KEY        = "query"
 )
 
 // OpenCensusUnmarshaller implements Unmarshaller
