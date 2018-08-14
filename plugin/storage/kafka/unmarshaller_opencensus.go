@@ -185,6 +185,10 @@ func convertTags(span *traceproto.Span) []model.KeyValue {
 		if tags == nil {
 			tags = make([]model.KeyValue, 0, 2)
 		}
+		// add error=true tag to annotation jaeger-ui to show red exclamation point next to span
+		if span.Status.Code != STATUS_CODE_OK {
+			tags = append(tags, model.KeyValue{Key: "error", VType: model.ValueType_BOOL, VBool: true})
+		}
 		tags = append(tags, model.KeyValue{Key: "status.code", VType: model.ValueType_INT64, VInt64: int64(span.Status.Code)},
 			model.KeyValue{Key: "status.message", VType: model.ValueType_STRING, VStr: span.Status.Message})
 	}
