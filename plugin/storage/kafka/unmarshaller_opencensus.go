@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"encoding/binary"
-	"fmt"
 	"github.com/gogo/protobuf/proto"
 	"strings"
 
@@ -81,7 +80,6 @@ func (h *OpenCensusUnmarshaller) Unmarshal(msg []byte) ([]*model.Span, error) {
 					Tags:          convertTags(span),
 					Logs:          convertLogs(span),
 					Process:       &model.Process{ServiceName: extractServiceName(span)},
-					Warnings:      extractWarnings(span),
 				},
 			)
 		}
@@ -155,17 +153,6 @@ func extractRemoteKind(span *traceproto.Span) string {
 		}
 	}
 	return remoteKind
-}
-
-func extractWarnings(span *traceproto.Span) []string {
-	warnings := make([]string, 0)
-
-	if span.Status != nil {
-		if span.Status.Code != STATUS_CODE_OK {
-			warnings = append(warnings, fmt.Sprintf("code:%d,message:%s", span.Status.Code, span.Status.Message))
-		}
-	}
-	return warnings
 }
 
 func convertTags(span *traceproto.Span) []model.KeyValue {
