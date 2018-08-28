@@ -72,7 +72,7 @@ func (h *OpenCensusUnmarshaller) Unmarshal(msg []byte) ([]*model.Span, error) {
 				&model.Span{
 					TraceID:       model.NewTraceID(binary.BigEndian.Uint64(span.TraceId[0:8]), binary.BigEndian.Uint64(span.TraceId[8:16])),
 					SpanID:        model.NewSpanID(binary.BigEndian.Uint64(span.SpanId)),
-					OperationName: strings.ToUpper(extractRemoteKind(span)) + "::" + operationName(span),
+					OperationName: strings.ToUpper(extractCallKind(span)) + "::" + operationName(span),
 					References:    convertReferences(span),
 					Flags:         0,
 					StartTime:     startTime,
@@ -143,16 +143,25 @@ func extractServiceName(span *traceproto.Span) string {
 	return serviceName
 }
 
-func extractRemoteKind(span *traceproto.Span) string {
-	remoteKind := "unset"
+func extractCallKind(span *traceproto.Span) string {
+	callKind := "unset"
 	if span.Attributes != nil {
-		if v, ok := span.Attributes.AttributeMap[REMOTE_KIND_KEY]; ok {
-			if v.GetStringValue() != nil {
-				remoteKind = v.GetStringValue().Value
+		switch span.Kind {
+		case traceproto.Span_CLIENT:
+			if v, ok := span.Attributes.AttributeMap[REMOTE_KIND_KEY]; ok {
+				if v.GetStringValue() != nil {
+					callKind = v.GetStringValue().Value
+				}
+			}
+		case traceproto.Span_SERVER:
+			if v, ok := span.Attributes.AttributeMap[KIND_KEY]; ok {
+				if v.GetStringValue() != nil {
+					callKind = v.GetStringValue().Value
+				}
 			}
 		}
 	}
-	return remoteKind
+	return callKind
 }
 
 func convertTags(span *traceproto.Span) []model.KeyValue {
