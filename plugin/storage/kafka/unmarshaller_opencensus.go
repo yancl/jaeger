@@ -144,22 +144,34 @@ func extractServiceName(span *tracepb.Span) string {
 }
 
 func extractCallKind(span *tracepb.Span) string {
-	callKind := "unset"
+	var callKind string
 	if span.Attributes != nil {
 		switch span.Kind {
 		case tracepb.Span_CLIENT:
 			if v, ok := span.Attributes.AttributeMap[REMOTE_KIND_KEY]; ok {
-				if v.GetStringValue() != nil {
-					callKind = v.GetStringValue().Value
-				}
+				callKind = v.GetStringValue().GetValue()
 			}
 		case tracepb.Span_SERVER:
 			if v, ok := span.Attributes.AttributeMap[KIND_KEY]; ok {
-				if v.GetStringValue() != nil {
-					callKind = v.GetStringValue().Value
+				callKind = v.GetStringValue().GetValue()
+			}
+		default:
+			// If we cann't detect the Kind
+			// just like this: https://github.com/opencensus-integrations/ocsql/pull/21#issuecomment-432126060
+			// then we will try our best to guess the remote kind by XXX_KIND_KEY
+			if v, ok := span.Attributes.AttributeMap[REMOTE_KIND_KEY]; ok {
+				callKind = v.GetStringValue().GetValue()
+				if callKind != "" {
+					break
 				}
 			}
+			if v, ok := span.Attributes.AttributeMap[KIND_KEY]; ok {
+				callKind = v.GetStringValue().GetValue()
+			}
 		}
+	}
+	if callKind == "" {
+		callKind = "unset"
 	}
 	return callKind
 }
