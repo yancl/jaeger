@@ -21,9 +21,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"strings"
 
-	"github.com/census-instrumentation/opencensus-proto/gen-go/traceproto"
+	tracepb "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	"github.com/jaegertracing/jaeger/model"
-	"github.com/yancl/hunter-proto/gen-go/dumpproto"
+	dumppb "github.com/yancl/opencensus-go-exporter-kafka/gen-go/dump/v1"
 )
 
 const (
@@ -50,7 +50,7 @@ func NewOpenCensusUnmarshaller() *OpenCensusUnmarshaller {
 // Unmarshal decodes a protobuf byte array to a span
 func (h *OpenCensusUnmarshaller) Unmarshal(msg []byte) ([]*model.Span, error) {
 	// load opencensus spans
-	ds := &dumpproto.DumpSpans{}
+	ds := &dumppb.DumpSpans{}
 	err := proto.Unmarshal(msg, ds)
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func (h *OpenCensusUnmarshaller) Unmarshal(msg []byte) ([]*model.Span, error) {
 	return spans, err
 }
 
-func convertReferences(span *traceproto.Span) []model.SpanRef {
+func convertReferences(span *tracepb.Span) []model.SpanRef {
 	var spanRefs []model.SpanRef
 	if span.Links != nil {
 		spanRefs = make([]model.SpanRef, 0, len(span.Links.Link)+1)
@@ -121,17 +121,17 @@ func convertReferences(span *traceproto.Span) []model.SpanRef {
 	return spanRefs
 }
 
-func convertReferenceType(t traceproto.Span_Link_Type) model.SpanRefType {
+func convertReferenceType(t tracepb.Span_Link_Type) model.SpanRefType {
 	switch t {
-	case traceproto.Span_Link_CHILD_LINKED_SPAN:
+	case tracepb.Span_Link_CHILD_LINKED_SPAN:
 		return model.SpanRefType_FOLLOWS_FROM
-	case traceproto.Span_Link_PARENT_LINKED_SPAN:
+	case tracepb.Span_Link_PARENT_LINKED_SPAN:
 		return model.SpanRefType_CHILD_OF
 	}
 	return model.SpanRefType_FOLLOWS_FROM
 }
 
-func extractServiceName(span *traceproto.Span) string {
+func extractServiceName(span *tracepb.Span) string {
 	serviceName := "unset"
 	if span.Attributes != nil {
 		if v, ok := span.Attributes.AttributeMap[SERVICE_NAME_KEY]; ok {
@@ -143,17 +143,17 @@ func extractServiceName(span *traceproto.Span) string {
 	return serviceName
 }
 
-func extractCallKind(span *traceproto.Span) string {
+func extractCallKind(span *tracepb.Span) string {
 	callKind := "unset"
 	if span.Attributes != nil {
 		switch span.Kind {
-		case traceproto.Span_CLIENT:
+		case tracepb.Span_CLIENT:
 			if v, ok := span.Attributes.AttributeMap[REMOTE_KIND_KEY]; ok {
 				if v.GetStringValue() != nil {
 					callKind = v.GetStringValue().Value
 				}
 			}
-		case traceproto.Span_SERVER:
+		case tracepb.Span_SERVER:
 			if v, ok := span.Attributes.AttributeMap[KIND_KEY]; ok {
 				if v.GetStringValue() != nil {
 					callKind = v.GetStringValue().Value
@@ -164,7 +164,7 @@ func extractCallKind(span *traceproto.Span) string {
 	return callKind
 }
 
-func convertTags(span *traceproto.Span) []model.KeyValue {
+func convertTags(span *tracepb.Span) []model.KeyValue {
 	var tags []model.KeyValue
 
 	if span.Attributes != nil {
@@ -191,14 +191,14 @@ func convertTags(span *traceproto.Span) []model.KeyValue {
 	return tags
 }
 
-func convertLogs(span *traceproto.Span) []model.Log {
+func convertLogs(span *tracepb.Span) []model.Log {
 	var logs []model.Log
 	if span.TimeEvents != nil {
 		logs = make([]model.Log, 0, len(span.TimeEvents.TimeEvent))
 		for _, event := range span.TimeEvents.TimeEvent {
 			if event != nil && event.Time != nil {
 				switch event.Value.(type) {
-				case *traceproto.Span_TimeEvent_Annotation_:
+				case *tracepb.Span_TimeEvent_Annotation_:
 					annotation := event.GetAnnotation()
 					if annotation != nil {
 						var fields []model.KeyValue
@@ -221,7 +221,7 @@ func convertLogs(span *traceproto.Span) []model.Log {
 						}
 						logs = append(logs, model.Log{Timestamp: time.Unix(event.Time.Seconds, int64(event.Time.Nanos)), Fields: fields})
 					}
-				case *traceproto.Span_TimeEvent_MessageEvent_:
+				case *tracepb.Span_TimeEvent_MessageEvent_:
 					messageEvent := event.GetMessageEvent()
 					if messageEvent != nil {
 						fields := make([]model.KeyValue, 0, 4)
@@ -239,41 +239,41 @@ func convertLogs(span *traceproto.Span) []model.Log {
 	return logs
 }
 
-func attributeToTag(key string, attr *traceproto.AttributeValue) *model.KeyValue {
+func attributeToTag(key string, attr *tracepb.AttributeValue) *model.KeyValue {
 	if attr != nil {
 		switch attr.Value.(type) {
-		case *traceproto.AttributeValue_StringValue:
+		case *tracepb.AttributeValue_StringValue:
 			if attr.GetStringValue() != nil {
 				return &model.KeyValue{Key: key, VType: model.ValueType_STRING, VStr: attr.GetStringValue().Value}
 			}
-		case *traceproto.AttributeValue_IntValue:
+		case *tracepb.AttributeValue_IntValue:
 			return &model.KeyValue{Key: key, VType: model.ValueType_INT64, VInt64: attr.GetIntValue()}
-		case *traceproto.AttributeValue_BoolValue:
+		case *tracepb.AttributeValue_BoolValue:
 			return &model.KeyValue{Key: key, VType: model.ValueType_BOOL, VBool: attr.GetBoolValue()}
 		}
 	}
 	return nil
 }
 
-func operationName(span *traceproto.Span) string {
+func operationName(span *tracepb.Span) string {
 	n := "unknown"
 	if span.Name != nil {
 		n = span.Name.Value
 	}
 	switch span.Kind {
-	case traceproto.Span_CLIENT:
+	case tracepb.Span_CLIENT:
 		n = "Sent." + n
-	case traceproto.Span_SERVER:
+	case tracepb.Span_SERVER:
 		n = "Recv." + n
 	}
 	return n
 }
 
-func messageEventTypeToStr(t traceproto.Span_TimeEvent_MessageEvent_Type) string {
+func messageEventTypeToStr(t tracepb.Span_TimeEvent_MessageEvent_Type) string {
 	switch t {
-	case traceproto.Span_TimeEvent_MessageEvent_SENT:
+	case tracepb.Span_TimeEvent_MessageEvent_SENT:
 		return "SENT"
-	case traceproto.Span_TimeEvent_MessageEvent_RECEIVED:
+	case tracepb.Span_TimeEvent_MessageEvent_RECEIVED:
 		return "RECEIVED"
 	}
 	return "UNSPECIFIED"

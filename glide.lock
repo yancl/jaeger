@@ -1,5 +1,5 @@
-hash: 8f2b0df54e8351bffa668fe9fa265eb40b58efc8cdac540e0ff760b794e70ad3
-updated: 2018-07-18T21:52:13.448333-04:00
+hash: 0c549ff3641281684b8594a4b4f7fb1c558f357cd0da2e02108f1f2d1570eac4
+updated: 2018-10-24T07:03:22.96635868Z
 imports:
 - name: github.com/apache/thrift
   version: 53dd39833a08ce33582e5ff31fa18bb4735d6731
@@ -12,7 +12,11 @@ imports:
   subpackages:
   - quantile
 - name: github.com/bsm/sarama-cluster
-  version: cf455bc755fe41ac9bb2861e7a961833d9c2ecc3
+  version: c618e605e15c0d7535f6c96ff8efbb0dba4fd66c
+- name: github.com/census-instrumentation/opencensus-proto
+  version: 24333298e36590ea0716598caacc8959fc393c48
+  subpackages:
+  - gen-go/trace/v1
 - name: github.com/codahale/hdrhistogram
   version: 3a0bb77429bd3a61596f5e8a3172445844342120
 - name: github.com/crossdock/crossdock-go
@@ -21,7 +25,7 @@ imports:
   - assert
   - require
 - name: github.com/davecgh/go-spew
-  version: 8991bc29aa16c548c550c7ff78260e27b9ab7c73
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:
   - spew
 - name: github.com/eapache/go-resiliency
@@ -77,11 +81,11 @@ imports:
 - name: github.com/gogo/gateway
   version: 6d3dfbe4e3b52add3800488f526462e69bce526a
 - name: github.com/gogo/googleapis
-  version: b23578765ee54ff6bceff57f397d833bf4ca6869
+  version: 8558fb44d2f1fc223118afc694129d2c2d2924d1
   subpackages:
   - google/api
 - name: github.com/gogo/protobuf
-  version: 636bf0302bc95575d69441b25a2603156ffdddf1
+  version: 6f222ca7387001523464e651447e272d9d2aa6f6
   subpackages:
   - gogoproto
   - jsonpb
@@ -90,7 +94,7 @@ imports:
   - sortkeys
   - types
 - name: github.com/golang/protobuf
-  version: bbd03ef6da3a115852eaf24c8a1c46aeb39aa175
+  version: aa810b61a9c79d51363740d207bb46cf8e620ed5
   subpackages:
   - jsonpb
   - proto
@@ -100,6 +104,7 @@ imports:
   - ptypes/duration
   - ptypes/struct
   - ptypes/timestamp
+  - ptypes/wrappers
 - name: github.com/golang/snappy
   version: 553a641470496b2327abcac10b36396bd98e45c9
 - name: github.com/gorilla/context
@@ -204,7 +209,7 @@ imports:
 - name: github.com/rcrowley/go-metrics
   version: e2704e165165ec55d062f5919b4b29494e9fa790
 - name: github.com/Shopify/sarama
-  version: 35324cf48e33d8260e1c7c18854465a904ade249
+  version: ec843464b50d4c8b56403ec9d589cf41ea30e722
   subpackages:
   - mocks
 - name: github.com/spf13/afero
@@ -218,21 +223,22 @@ imports:
 - name: github.com/spf13/jwalterweatherman
   version: 12bd96e66386c1960ab0f74ced1362f66f552f7b
 - name: github.com/spf13/pflag
-  version: 583c0c0531f06d5278b7d917446061adc344b5cd
+  version: 298182f68c66c05229eb03ac171abe6e309ee79a
 - name: github.com/spf13/viper
-  version: b5e8006cbee93ec955a89ab31e0e3ce3204f3736
+  version: 2c12c60302a5a0e62ee102ca9bc996277c2f64f5
 - name: github.com/stretchr/objx
-  version: b8b73a35e9830ae509858c10dec5866b4d5c8bff
+  version: ef50b0de28773081167c97fc27cf29a0bf8b8c71
 - name: github.com/stretchr/testify
   version: f35b8ab0b5a2cef36673838d662e249dd9c94686
   subpackages:
   - assert
+  - http
   - mock
   - require
 - name: github.com/uber-go/atomic
   version: 8474b86a5a6f79c443ce4b2992817ff32cf208b8
 - name: github.com/uber/jaeger-client-go
-  version: b043381d944715b469fd6b37addfd30145ca1758
+  version: 1a782e2da844727691fef1757c72eb190c2909f0
   subpackages:
   - config
   - internal/baggage
@@ -276,12 +282,16 @@ imports:
   - typed
 - name: github.com/VividCortex/gohistogram
   version: 51564d9861991fb0ad0f531c99ef602d0f9866e6
+- name: github.com/yancl/opencensus-go-exporter-kafka
+  version: dc08e0d5913b165cf0e86d79febac5f1e11fdaed
+  subpackages:
+  - gen-go/dump/v1
 - name: go.uber.org/atomic
   version: 1ea20fb1cbb1cc08cbd0d913a96dead89aa18289
 - name: go.uber.org/multierr
   version: 3c4937480c32f4c13a875a1829af76c98ca3d40a
 - name: go.uber.org/zap
-  version: eeedf312bc6c57391d84767a4cd413f02a917974
+  version: ff33455a0e382e8a81d14dd7c922020b6b5e7982
   subpackages:
   - buffer
   - internal/bufferpool
@@ -291,7 +301,7 @@ imports:
   - zapcore
   - zaptest
 - name: golang.org/x/net
-  version: 8887df42c721e930089d31b28391090a10a497d7
+  version: 9b4f9f5ad5197c79fd623a3638e70d8b26cef344
   subpackages:
   - context
   - context/ctxhttp
@@ -355,7 +365,7 @@ imports:
   - config
   - uritemplates
 - name: gopkg.in/yaml.v2
-  version: d670f9405373e636a5a2765eea47fac0c9bc91a4
+  version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
 testImports:
 - name: github.com/kr/text
   version: 7cafcd837844e784b526369c9bce262804aebc60
