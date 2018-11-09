@@ -283,7 +283,7 @@ imports:
 - name: github.com/VividCortex/gohistogram
   version: 51564d9861991fb0ad0f531c99ef602d0f9866e6
 - name: github.com/yancl/opencensus-go-exporter-kafka
-  version: dc08e0d5913b165cf0e86d79febac5f1e11fdaed
+  version: 9c471c1bfbebdf25572288c2673ece11e3ca807a
   subpackages:
   - gen-go/dump/v1
 - name: go.uber.org/atomic
