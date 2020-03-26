@@ -45,6 +45,8 @@ const (
 	SuffixParallelism = ".parallelism"
 	// SuffixEncoding is a suffix for the encoding flag
 	SuffixEncoding = ".encoding"
+	// SampleRateBase is the sample rate base
+	SampleRateBase = ".sample-rate-base"
 
 	// DefaultBroker is the default kafka broker
 	DefaultBroker = "127.0.0.1:9092"
@@ -56,13 +58,16 @@ const (
 	DefaultParallelism = 1000
 	// DefaultEncoding is the default span encoding
 	DefaultEncoding = EncodingProto
+	// DefaultSampleRateBase is the default sample rate base
+	DefaultSampleRateBase = 1
 )
 
 // Options stores the configuration options for the Ingester
 type Options struct {
 	kafkaConsumer.Configuration
-	Parallelism int
-	Encoding    string
+	Parallelism    int
+	Encoding       string
+	SampleRateBase int
 }
 
 // AddFlags adds flags for Builder
@@ -87,6 +92,10 @@ func AddFlags(flagSet *flag.FlagSet) {
 		ConfigPrefix+SuffixEncoding,
 		DefaultEncoding,
 		fmt.Sprintf(`The encoding of spans ("%s" or "%s") consumed from kafka`, EncodingProto, EncodingJSON))
+	flagSet.String(
+		ConfigPrefix+SampleRateBase,
+		strconv.Itoa(DefaultSampleRateBase),
+		"The sample rate base of messages to store")
 }
 
 // InitFromViper initializes Builder with properties from viper
@@ -96,4 +105,5 @@ func (o *Options) InitFromViper(v *viper.Viper) {
 	o.GroupID = v.GetString(ConfigPrefix + SuffixGroupID)
 	o.Parallelism = v.GetInt(ConfigPrefix + SuffixParallelism)
 	o.Encoding = v.GetString(ConfigPrefix + SuffixEncoding)
+	o.SampleRateBase = v.GetInt(ConfigPrefix + SampleRateBase)
 }

@@ -32,7 +32,7 @@ import (
 func CreateConsumer(logger *zap.Logger, metricsFactory metrics.Factory, spanWriter spanstore.Writer, options app.Options) (*consumer.Consumer, error) {
 	var unmarshaller kafka.Unmarshaller
 	if options.Encoding == app.EncodingOpenCensus {
-		unmarshaller = kafka.NewOpenCensusUnmarshaller()
+		unmarshaller = kafka.NewOpenCensusUnmarshaller(options.SampleRateBase)
 	} else if options.Encoding == app.EncodingJSON {
 		unmarshaller = kafka.NewJSONUnmarshaller()
 	} else if options.Encoding == app.EncodingProto {

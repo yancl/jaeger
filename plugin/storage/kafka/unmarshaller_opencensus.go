@@ -40,11 +40,15 @@ const (
 )
 
 // OpenCensusUnmarshaller implements Unmarshaller
-type OpenCensusUnmarshaller struct{}
+type OpenCensusUnmarshaller struct {
+	// sampleRateBase can be 1,10,100,1000,etc
+	// in which case means sample rate is 1, 0.1,0.01,0.001,etc
+	sampleRateBase int
+}
 
 // NewOpenCensusUnmarshaller constructs a OpenCensusUnmarshaller
-func NewOpenCensusUnmarshaller() *OpenCensusUnmarshaller {
-	return &OpenCensusUnmarshaller{}
+func NewOpenCensusUnmarshaller(sampleRateBase int) *OpenCensusUnmarshaller {
+	return &OpenCensusUnmarshaller{sampleRateBase: sampleRateBase}
 }
 
 // Unmarshal decodes a protobuf byte array to a span
@@ -67,21 +71,23 @@ func (h *OpenCensusUnmarshaller) Unmarshal(msg []byte) ([]*model.Span, error) {
 			}
 			startTime := time.Unix(span.StartTime.Seconds, int64(span.StartTime.Nanos))
 			endTime := time.Unix(span.EndTime.Seconds, int64(span.EndTime.Nanos))
-
-			spans = append(spans,
-				&model.Span{
-					TraceID:       model.NewTraceID(binary.BigEndian.Uint64(span.TraceId[0:8]), binary.BigEndian.Uint64(span.TraceId[8:16])),
-					SpanID:        model.NewSpanID(binary.BigEndian.Uint64(span.SpanId)),
-					OperationName: strings.ToUpper(extractCallKind(span)) + "::" + operationName(span),
-					References:    convertReferences(span),
-					Flags:         0,
-					StartTime:     startTime,
-					Duration:      endTime.Sub(startTime),
-					Tags:          convertTags(span),
-					Logs:          convertLogs(span),
-					Process:       &model.Process{ServiceName: extractServiceName(span)},
-				},
-			)
+			traceID := model.NewTraceID(binary.BigEndian.Uint64(span.TraceId[0:8]), binary.BigEndian.Uint64(span.TraceId[8:16]))
+			if (traceID.Low % uint64(h.sampleRateBase)) == 0 {
+				spans = append(spans,
+					&model.Span{
+						TraceID:       traceID,
+						SpanID:        model.NewSpanID(binary.BigEndian.Uint64(span.SpanId)),
+						OperationName: strings.ToUpper(extractCallKind(span)) + "::" + operationName(span),
+						References:    convertReferences(span),
+						Flags:         0,
+						StartTime:     startTime,
+						Duration:      endTime.Sub(startTime),
+						Tags:          convertTags(span),
+						Logs:          convertLogs(span),
+						Process:       &model.Process{ServiceName: extractServiceName(span)},
+					},
+				)
+			}
 		}
 	}
 	return spans, err
